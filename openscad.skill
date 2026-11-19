@@ -81,3 +81,4 @@ PY
 - Keep manifold: `Status: NoError`, no warnings. Union primitives so they
   overlap/fill — no grooves, holes, or cavities. Verify with a cross-section.
 - `$fa`/`$fs` at real size give smoother curves than scaling up a tiny model.
+- Do not omit curly braces for commands with one child statement.
