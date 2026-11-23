@@ -1,8 +1,10 @@
 // Small ITG stamina pad for a 277x277x9mm hollow-bottom center metal panel,
-// using two opposing square FSRs (Adafruit 1075) per hinged arrow panel.
-// Prints support-free and hardware-free on a Prusa MK4S (250x210x220mm):
+// using two opposing square FSRs (Adafruit 1075) per arrow (one independent
+// hinged half-panel per FSR). Prints support-free and hardware-free on a
+// Prusa MK4S (250x210x220mm):
 //   - 4x quadrant       (center support grid + FSR/wire pockets + keyhole hinges)
-//   - 4x panel          (1-piece 277mm panel, pre-angled 37.52 deg to fit bed)
+//   - 4x panel_left     (left independent half-panel, printed playing-face-down)
+//   - 4x panel_right    (right independent half-panel, printed playing-face-down)
 //   - 8x butterfly_key  (locks base quadrants across seams beneath panels)
 
 $fa = 2;
@@ -34,10 +36,10 @@ exit_chan_w = 12;
 // ---- arrow radial layout & keyhole cam hinge ----
 metal_pocket_gap = 1.0;
 panel_gap = 1.7;
+panel_split_gap = 1.5;
 inner_rim = 2.3;
 outer_rim = 2.5;
 panel_corner_chamfer = 8;
-panel_print_deg = 37.52;
 
 cam_r = 3.2;
 cam_half_h = 2.2;
@@ -110,13 +112,6 @@ open_east_deg = 180;
 module mirror_xy() {
 	children();
 	mirror([1, -1, 0]) {
-		children();
-	}
-}
-
-module mirror_x() {
-	children();
-	mirror([1, 0, 0]) {
 		children();
 	}
 }
@@ -305,41 +300,47 @@ module cam_trunnion(u_shoulder, dir) {
 	}
 }
 
-module panel_assy() {
+// Independent right half-panel (u in [panel_split_gap/2 .. half_c])
+module panel_half_right() {
 	z_c = panel_h - cam_half_h;
 	ch = panel_corner_chamfer;
-	mirror_x() {
-		difference() {
-			union() {
-				linear_extrude(height = panel_h) {
-					polygon([
-						[0, panel_gap],
-						[half_c - ch, panel_gap],
-						[half_c, panel_gap + ch],
-						[half_c, d_panel_end - ch],
-						[half_c - ch, d_panel_end],
-						[0, d_panel_end]
-					]);
-				}
-				for (u0 = [k_p1, k_p2]) {
-					knuckle_bar(u0, k_panel, panel_knuckle_r, d_panel_end - 2, 0, z_c, panel_h);
-					cam_trunnion(u0, -1);
-					cam_trunnion(u0 + k_panel, 1);
-				}
+	u_min = panel_split_gap / 2;
+	difference() {
+		union() {
+			linear_extrude(height = panel_h) {
+				polygon([
+					[u_min, panel_gap],
+					[half_c - ch, panel_gap],
+					[half_c, panel_gap + ch],
+					[half_c, d_panel_end - ch],
+					[half_c - ch, d_panel_end],
+					[u_min, d_panel_end]
+				]);
 			}
-			// Finger-lift bevel at outer end
-			translate([0, d_fsr + (fsr_head - lift_len) / 2, 0]) {
-				rotate([-90, 0, 0]) {
-					linear_extrude(height = lift_len) {
-						polygon([
-							[half_c - lift_bevel, 1],
-							[half_c + 1, 1],
-							[half_c + 1, -lift_bevel - 1]
-						]);
-					}
+			for (u0 = [k_p1, k_p2]) {
+				knuckle_bar(u0, k_panel, panel_knuckle_r, d_panel_end - 2, 0, z_c, panel_h);
+				cam_trunnion(u0, -1);
+				cam_trunnion(u0 + k_panel, 1);
+			}
+		}
+		// Finger-lift bevel at outer end
+		translate([0, d_fsr + (fsr_head - lift_len) / 2, 0]) {
+			rotate([-90, 0, 0]) {
+				linear_extrude(height = lift_len) {
+					polygon([
+						[half_c - lift_bevel, 1],
+						[half_c + 1, 1],
+						[half_c + 1, -lift_bevel - 1]
+					]);
 				}
 			}
 		}
+	}
+}
+
+module panel_half_left() {
+	mirror([1, 0, 0]) {
+		panel_half_right();
 	}
 }
 
@@ -347,7 +348,8 @@ module full_arrow_panel(open_deg = 0) {
 	translate([0, d_hinge, z_hinge]) {
 		rotate([-open_deg, 0, 0]) {
 			translate([0, -d_hinge, -(panel_h - cam_half_h)]) {
-				panel_assy();
+				panel_half_left();
+				panel_half_right();
 			}
 		}
 	}
@@ -371,12 +373,16 @@ module assembly() {
 
 if (part == "quadrant") {
 	quadrant();
-} else if (part == "panel") {
-	rotate([0, 0, panel_print_deg]) {
-		translate([0, -(panel_gap + d_outer) / 2, panel_h]) {
-			rotate([0, 180, 0]) {
-				panel_assy();
-			}
+} else if (part == "panel_right") {
+	translate([half_c, 0, panel_h]) {
+		rotate([0, 180, 0]) {
+			panel_half_right();
+		}
+	}
+} else if (part == "panel_left") {
+	translate([0, 0, panel_h]) {
+		rotate([0, 180, 0]) {
+			panel_half_left();
 		}
 	}
 } else if (part == "butterfly_key") {
